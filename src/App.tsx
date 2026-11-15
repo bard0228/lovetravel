@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
   Trash2,
   Plane,
+  X,
 } from "lucide-react";
 import { CategoryType, ExpenseItem, Trip } from "./types";
 import {
@@ -357,7 +358,7 @@ export default function App() {
     return (
       <>
         <div className="lg-ambient-bg" />
-        <div className="min-h-dvh flex items-center justify-center text-sm font-semibold text-slate-500">
+        <div className="min-h-dvh flex items-center justify-center text-[28px] sm:text-[32px] font-extrabold text-slate-700 tracking-tight">
           旅記
         </div>
       </>
@@ -391,9 +392,9 @@ export default function App() {
             </button>
 
             <div className="text-center select-none">
-              <h1 className="text-[88px] sm:text-[96px] font-extrabold text-slate-800 relative inline-block leading-none tracking-tight">
+              <h1 className="text-[46px] font-extrabold text-slate-800 relative inline-block leading-none tracking-tight">
                 旅記
-                <span className="absolute -left-2 -right-2 -bottom-1 h-5 bg-[#5b8270]/30 rounded-full -z-10" />
+                <span className="absolute -left-2 -right-2 -bottom-1 h-3 bg-[#5b8270]/30 rounded-full -z-10" />
               </h1>
             </div>
 
@@ -444,17 +445,7 @@ export default function App() {
                 <ChevronLeft size={20} strokeWidth={2} />
               </button>
               <h2 className="text-base font-bold text-slate-800">回憶旅程</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingTrip(null);
-                  setIsTripModalOpen(true);
-                }}
-                aria-label="新增旅程"
-                className="lg-btn bg-[#5b8270] text-white !min-w-[44px] !min-h-[44px] w-11 h-11 flex items-center justify-center"
-              >
-                <Plus size={20} strokeWidth={2} />
-              </button>
+              <div className="w-11 h-11" aria-hidden="true" />
             </header>
 
             <div className="space-y-2.5">
@@ -564,7 +555,7 @@ export default function App() {
               <div className="lg-accordion-inner">
                 <div className="lg-card p-3 space-y-2.5">
                   <div className="relative">
-                    <Search size={15} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={15} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
                       placeholder="搜尋品項或商家"
@@ -575,8 +566,18 @@ export default function App() {
                           switchMainTab("list");
                         }
                       }}
-                      className="w-full min-h-[42px] pl-9 pr-3 rounded-xl bg-white/75 border border-white text-xs text-slate-800"
+                      className="w-full min-h-[42px] pl-9 pr-9 rounded-xl bg-white/75 border border-white text-xs text-slate-800"
                     />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        aria-label="清除搜尋"
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition"
+                      >
+                        <X size={14} strokeWidth={2.2} />
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button
@@ -689,26 +690,31 @@ export default function App() {
             <div className="overflow-hidden">
               {activeTab === "list" && (
                 <div key="tab-list" data-testid="expense-list-panel" className={`space-y-2.5 ${tabAnimClass}`}>
-                  {groupedByDate.length > 0 && (
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={expandAllDates}
-                        className="px-3 py-1.5 rounded-full bg-white/70 border border-white text-xs font-bold text-slate-700 flex items-center gap-1"
-                      >
-                        <ChevronsUpDown size={13} strokeWidth={2} />
-                        <span>全部展開</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={collapseAllDates}
-                        className="px-3 py-1.5 rounded-full bg-white/70 border border-white text-xs font-bold text-slate-700 flex items-center gap-1"
-                      >
-                        <ChevronsDownUp size={13} strokeWidth={2} />
-                        <span>全部收起</span>
-                      </button>
-                    </div>
-                  )}
+                  {groupedByDate.length > 0 && (() => {
+                    const allExpanded = groupedByDate.every((g) => isDateExpanded(g.date));
+                    return (
+                      <div className="flex items-center justify-end">
+                        <button
+                          type="button"
+                          data-testid="toggle-all-dates"
+                          onClick={allExpanded ? collapseAllDates : expandAllDates}
+                          className="px-3 py-1.5 rounded-full bg-white/70 border border-white text-xs font-bold text-slate-700 flex items-center gap-1 transition active:scale-95"
+                        >
+                          {allExpanded ? (
+                            <>
+                              <ChevronsDownUp size={13} strokeWidth={2} />
+                              <span>全部收起</span>
+                            </>
+                          ) : (
+                            <>
+                              <ChevronsUpDown size={13} strokeWidth={2} />
+                              <span>全部展開</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   {groupedByDate.length === 0 ? (
                     <div className="lg-card p-8 text-center text-sm text-slate-500">尚無消費紀錄</div>

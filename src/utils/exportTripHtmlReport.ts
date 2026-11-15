@@ -29,27 +29,34 @@ export function buildTripReportHtml(trip: Trip, expenses: ExpenseItem[]): string
   const totalTwd = sorted.reduce((s, e) => s + (e.amountTwd || 0), 0);
   const safeName = escapeHtml(trip.name || "旅記報告");
 
-  const rows = sorted
+  const itemsHtml = sorted
     .map((e) => {
       const imgs = getReportDisplayImages(e);
-      const imgsHtml = imgs
-        .map((img) => {
-          const src = img.dataUrl || img.driveUrl || "";
-          return src
-            ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(e.title)}" style="max-width:160px;border-radius:12px;margin-top:8px;display:block;" />`
-            : "";
-        })
-        .join("");
+      const imgsRowHtml =
+        imgs.length > 0
+          ? `<div class="photo-row">${imgs
+              .map((img) => {
+                const src = img.dataUrl || img.driveUrl || "";
+                return src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(e.title)}" />` : "";
+              })
+              .join("")}</div>`
+          : "";
 
-      return `<tr>
-        <td class="num">${escapeHtml(e.date)}</td>
-        <td><span class="badge">${escapeHtml(e.category)}</span></td>
-        <td><strong>${escapeHtml(e.title)}</strong>${e.merchant ? `<div class="sub">${escapeHtml(e.merchant)}</div>` : ""}${imgsHtml}</td>
-        <td class="num" style="text-align:right;">
-          <div>${escapeHtml(formatTwd(e.amountTwd))}</div>
-          <div class="sub">${escapeHtml(formatForeign(e.originalAmount, e.originalCurrency))}</div>
-        </td>
-      </tr>`;
+      return `<div class="exp-block">
+        <div class="exp-row">
+          <div class="col-date num">${escapeHtml(e.date)}</div>
+          <div class="col-cat"><span class="badge">${escapeHtml(e.category)}</span></div>
+          <div class="col-title">
+            <strong>${escapeHtml(e.title)}</strong>
+            ${e.merchant ? `<div class="sub">${escapeHtml(e.merchant)}</div>` : ""}
+          </div>
+          <div class="col-amt num">
+            <div>${escapeHtml(formatTwd(e.amountTwd))}</div>
+            <div class="sub">${escapeHtml(formatForeign(e.originalAmount, e.originalCurrency))}</div>
+          </div>
+        </div>
+        ${imgsRowHtml}
+      </div>`;
     })
     .join("");
 
@@ -64,16 +71,24 @@ export function buildTripReportHtml(trip: Trip, expenses: ExpenseItem[]): string
   body { font-family: "Plus Jakarta Sans", "Noto Sans TC", sans-serif; background: #f0f3f8; color: #1e293b; margin: 0; padding: 18px; }
   .toolbar { max-width: 820px; margin: 0 auto 14px; display: flex; justify-content: flex-end; gap: 10px; }
   .pdf-btn { min-height: 44px; padding: 0 18px; border: none; border-radius: 14px; background: #5b8270; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 6px 16px rgba(91,130,112,0.28); }
-  .wrap { max-width: 820px; margin: 0 auto; background: rgba(255,255,255,0.92); border: 1px solid #fff; border-radius: 22px; padding: 22px; box-shadow: 0 12px 32px rgba(60,74,92,0.08); }
+  .wrap { max-width: 820px; margin: 0 auto; background: rgba(255,255,255,0.94); border: 1px solid #fff; border-radius: 22px; padding: 22px; box-shadow: 0 12px 32px rgba(60,74,92,0.08); }
   h1 { margin: 0 0 6px; font-size: 24px; }
   .meta { color: #64748b; font-size: 13px; margin-bottom: 14px; }
   .total { font-size: 22px; font-weight: 800; color: #5b8270; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 10px 8px; border-bottom: 1px solid rgba(100,116,139,0.14); text-align: left; font-size: 13px; vertical-align: top; }
-  th { font-size: 12px; color: #64748b; font-weight: 700; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(91,130,112,0.14); color: #3d5d4e; font-size: 11px; font-weight: 700; }
+  .list-head { display: grid; grid-template-columns: 92px 60px 1fr 100px; gap: 8px; padding: 8px 6px; border-bottom: 1.5px solid rgba(100,116,139,0.2); font-size: 12px; color: #64748b; font-weight: 700; }
+  .list-head .col-amt { text-align: right; }
+  .exp-block { border-bottom: 1px solid rgba(100,116,139,0.14); padding: 10px 6px; break-inside: avoid; page-break-inside: avoid; }
+  .exp-row { display: grid; grid-template-columns: 92px 60px 1fr 100px; gap: 8px; align-items: start; font-size: 13px; }
+  .col-amt { text-align: right; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(91,130,112,0.14); color: #3d5d4e; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .sub { font-size: 11px; color: #64748b; margin-top: 2px; }
   .num { font-variant-numeric: tabular-nums; }
+  .photo-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; width: 100%; }
+  .photo-row img { height: 112px; width: auto; max-width: calc(33.333% - 6px); object-fit: cover; border-radius: 10px; display: block; }
+  @media (max-width: 520px) {
+    .list-head, .exp-row { grid-template-columns: 78px 48px 1fr 78px; gap: 6px; font-size: 12px; }
+    .photo-row img { height: 92px; max-width: calc(50% - 4px); }
+  }
   @media print { .toolbar { display: none !important; } body { background: #fff; padding: 0; } .wrap { box-shadow: none; border: none; } }
 </style>
 </head>
@@ -85,10 +100,10 @@ export function buildTripReportHtml(trip: Trip, expenses: ExpenseItem[]): string
     <h1>${safeName}</h1>
     <div class="meta">${escapeHtml(trip.destination)} · ${escapeHtml(trip.startDate)}${trip.endDate ? ` ~ ${escapeHtml(trip.endDate)}` : ""} · 共 ${sorted.length} 筆</div>
     <div class="total num">總計 ${escapeHtml(formatTwd(totalTwd))}</div>
-    <table>
-      <thead><tr><th>日期</th><th>分類</th><th>消費內容</th><th style="text-align:right;">金額</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    <div class="list-head">
+      <div>日期</div><div>分類</div><div>消費內容</div><div class="col-amt">金額</div>
+    </div>
+    ${itemsHtml}
   </div>
   <script>
     async function exportAndSharePdf() {

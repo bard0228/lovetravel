@@ -32,3 +32,11 @@ test("T2 報告照片過濾：自動隱藏發票與收據，僅保留實品照",
   assert.equal(out.length, 1);
   assert.equal(out[0].id, "3");
 });
+
+test("T3 匯出報告 HTML 採用橫向 photo-row 滿版排版並含 PDF 分享按鈕", () => {
+  const reportSrc = fs.readFileSync(path.resolve("src/utils/exportTripHtmlReport.ts"), "utf-8");
+  assert.equal(reportSrc.includes(".photo-row { display: flex; flex-wrap: wrap;"), true);
+  assert.equal(reportSrc.includes('id="btn-pdf-share"'), true);
+  assert.equal(reportSrc.includes("${imgsRowHtml}"), true);
+});
+
