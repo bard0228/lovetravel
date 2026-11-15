@@ -1,6 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
+  ChevronDown,
   ChevronLeft,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Clock,
   Cloud,
   Download,
@@ -49,6 +53,7 @@ import { TripFormModal } from "./components/TripFormModal";
 import { ExpenseFormModal } from "./components/ExpenseFormModal";
 import { ExpenseDetailModal } from "./components/ExpenseDetailModal";
 import { SyncSettingsModal } from "./components/SyncSettingsModal";
+import { ConfirmDeleteModal } from "./components/ConfirmDeleteModal";
 
 type ViewMode = "welcome" | "catalog" | "main";
 type MainTab = "list" | "map" | "stats";
@@ -69,13 +74,17 @@ export default function App() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryType | null>(null);
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
   const [isTripModalOpen, setIsTripModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [pendingDeleteTrip, setPendingDeleteTrip] = useState<Trip | null>(null);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [detailExpense, setDetailExpense] = useState<ExpenseItem | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // 初始化資料與即時匯率
   useEffect(() => {
@@ -128,11 +137,10 @@ export default function App() {
 
   // Android 12 Edge Overscroll Stretch
   useEffect(() => {
-    const detach = attachAndroidEdgeStretch(
+    return attachAndroidEdgeStretch(
       document.scrollingElement as HTMLElement | null,
       document.querySelector("#app-shell") as HTMLElement | null
     );
-    return detach;
   }, [ready]);
 
   const persistAll = async (nextTrips: Trip[], nextExpenses: ExpenseItem[]) => {
@@ -147,11 +155,58 @@ export default function App() {
     }
   };
 
-  const navigateView = (next: ViewMode, dir: "left" | "right") => {
+  const navigateView = (next: ViewMode, dir: "left" | "right", pushHistory = true) => {
     setViewDir(dir);
     setView(next);
+    if (pushHistory && next !== "welcome") {
+      try {
+        window.history.pushState({ view: next }, "");
+      } catch {}
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // 手機系統返回手勢 / 返回鍵攔截
+  useEffect(() => {
+    const onPopState = () => {
+      if (pendingDeleteTrip) {
+        setPendingDeleteTrip(null);
+        return;
+      }
+      if (detailExpense) {
+        setDetailExpense(null);
+        return;
+      }
+      if (isExpenseModalOpen) {
+        setIsExpenseModalOpen(false);
+        return;
+      }
+      if (isTripModalOpen) {
+        setIsTripModalOpen(false);
+        return;
+      }
+      if (isSyncModalOpen) {
+        setIsSyncModalOpen(false);
+        return;
+      }
+      if (view === "main") {
+        navigateView("catalog", "left", false);
+      } else if (view === "catalog") {
+        navigateView("welcome", "left", false);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [view, pendingDeleteTrip, detailExpense, isExpenseModalOpen, isTripModalOpen, isSyncModalOpen]);
+
+  // 彈窗開啟時推入歷史狀態以便手機返回手勢關閉彈窗
+  useEffect(() => {
+    if (isTripModalOpen || isExpenseModalOpen || Boolean(detailExpense) || isSyncModalOpen || Boolean(pendingDeleteTrip)) {
+      try {
+        window.history.pushState({ modal: true }, "");
+      } catch {}
+    }
+  }, [isTripModalOpen, isExpenseModalOpen, detailExpense, isSyncModalOpen, pendingDeleteTrip]);
 
   const switchMainTab = (next: MainTab) => {
     const order: MainTab[] = ["list", "map", "stats"];
@@ -190,6 +245,46 @@ export default function App() {
     });
   }, [tripExpenses, categoryFilter, searchQuery]);
 
+  // 依日期分組
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, ExpenseItem[]>();
+    for (const e of filteredExpenses) {
+      const d = normalizeDate(e.date) || "未分類日期";
+      const list = map.get(d) || [];
+      list.push(e);
+      map.set(d, list);
+    }
+    return Array.from(map.entries()).map(([date, items]) => ({
+      date,
+      items,
+      totalTwd: items.reduce((s, x) => s + (x.amountTwd || 0), 0),
+    }));
+  }, [filteredExpenses]);
+
+  // 切換旅程時預設僅展開最新一天
+  useEffect(() => {
+    if (groupedByDate.length > 0) {
+      setExpandedDates({ [groupedByDate[0].date]: true });
+    }
+  }, [currentTripId]);
+
+  const isDateExpanded = (date: string) => {
+    if (searchQuery.trim() || categoryFilter) return true;
+    return Boolean(expandedDates[date]);
+  };
+
+  const expandAllDates = () => {
+    const next: Record<string, boolean> = {};
+    groupedByDate.forEach((g) => {
+      next[g.date] = true;
+    });
+    setExpandedDates(next);
+  };
+
+  const collapseAllDates = () => {
+    setExpandedDates({});
+  };
+
   const metrics = useMemo(
     () => (currentTrip ? computeTripBudgetMetrics(currentTrip, tripExpenses) : null),
     [currentTrip, tripExpenses]
@@ -223,6 +318,7 @@ export default function App() {
       ? expenses.map((e) => (e.id === expense.id ? expense : e))
       : [expense, ...expenses];
     await persistAll(trips, nextExpenses);
+    setExpandedDates((prev) => ({ ...prev, [normalizeDate(expense.date)]: true }));
   };
 
   const handleDeleteExpense = async (id: string) => {
@@ -236,6 +332,25 @@ export default function App() {
     const nextTrips = remote ? mergeTrips(trips, remote.trips) : trips;
     const nextExpenses = remote ? mergeExpenses(expenses, remote.expenses) : expenses;
     await persistAll(nextTrips, nextExpenses);
+  };
+
+  // 頁面右滑返回手勢
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const target = e.target as HTMLElement | null;
+    if (target && target.closest(".leaflet-container, [role='dialog']")) return;
+    swipeStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!swipeStartRef.current || e.changedTouches.length !== 1) return;
+    const dx = e.changedTouches[0].clientX - swipeStartRef.current.x;
+    const dy = Math.abs(e.changedTouches[0].clientY - swipeStartRef.current.y);
+    swipeStartRef.current = null;
+    if (dx > 85 && dx > dy * 1.8) {
+      if (view === "main") navigateView("catalog", "left");
+      else if (view === "catalog") navigateView("welcome", "left");
+    }
   };
 
   if (!ready) {
@@ -257,10 +372,15 @@ export default function App() {
     <>
       <div className="lg-ambient-bg" />
 
-      <main id="app-shell" className="w-full max-w-[430px] min-h-dvh mx-auto px-4 pt-4 pb-28 relative overflow-x-hidden">
+      <main
+        id="app-shell"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="w-full max-w-[430px] min-h-dvh mx-auto px-4 pt-4 pb-32 relative overflow-x-hidden"
+      >
         {/* View 1: Welcome */}
         {view === "welcome" && (
-          <section key="view-welcome" className={`min-h-[calc(100dvh-110px)] flex flex-col justify-center items-center gap-7 relative ${viewAnimClass}`}>
+          <section key="view-welcome" className={`min-h-[calc(100dvh-110px)] flex flex-col justify-center items-center gap-8 relative ${viewAnimClass}`}>
             <button
               type="button"
               onClick={() => setIsSyncModalOpen(true)}
@@ -271,9 +391,9 @@ export default function App() {
             </button>
 
             <div className="text-center select-none">
-              <h1 className="text-[46px] font-extrabold text-slate-800 relative inline-block leading-none">
+              <h1 className="text-[88px] sm:text-[96px] font-extrabold text-slate-800 relative inline-block leading-none tracking-tight">
                 旅記
-                <span className="absolute -left-1.5 -right-1.5 -bottom-0.5 h-3 bg-[#5b8270]/30 rounded-full -z-10" />
+                <span className="absolute -left-2 -right-2 -bottom-1 h-5 bg-[#5b8270]/30 rounded-full -z-10" />
               </h1>
             </div>
 
@@ -318,6 +438,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => navigateView("welcome", "left")}
+                aria-label="返回"
                 className="lg-btn bg-white/60 border border-white/80 !min-w-[44px] !min-h-[44px] w-11 h-11 flex items-center justify-center text-slate-700"
               >
                 <ChevronLeft size={20} strokeWidth={2} />
@@ -329,6 +450,7 @@ export default function App() {
                   setEditingTrip(null);
                   setIsTripModalOpen(true);
                 }}
+                aria-label="新增旅程"
                 className="lg-btn bg-[#5b8270] text-white !min-w-[44px] !min-h-[44px] w-11 h-11 flex items-center justify-center"
               >
                 <Plus size={20} strokeWidth={2} />
@@ -374,9 +496,10 @@ export default function App() {
                       </div>
                       <button
                         type="button"
+                        aria-label="刪除旅程"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteTrip(t.id);
+                          setPendingDeleteTrip(t);
                         }}
                         className="lg-btn bg-white/60 border border-white/80 !min-w-[40px] !min-h-[40px] w-10 h-10 flex items-center justify-center text-slate-500 hover:text-[#a86c72]"
                       >
@@ -401,6 +524,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => navigateView("catalog", "left")}
+                aria-label="返回"
                 className="lg-btn bg-white/60 border border-white/80 !min-w-[44px] !min-h-[44px] w-11 h-11 flex items-center justify-center text-slate-700"
               >
                 <ChevronLeft size={20} strokeWidth={2} />
@@ -445,7 +569,12 @@ export default function App() {
                       type="text"
                       placeholder="搜尋品項或商家"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (activeTab !== "list") {
+                          switchMainTab("list");
+                        }
+                      }}
                       className="w-full min-h-[42px] pl-9 pr-3 rounded-xl bg-white/75 border border-white text-xs text-slate-800"
                     />
                   </div>
@@ -556,42 +685,97 @@ export default function App() {
               ))}
             </div>
 
-            {/* Rule 10: 頁籤內容方向性滑入 */}
+            {/* 頁籤內容方向性滑入 */}
             <div className="overflow-hidden">
               {activeTab === "list" && (
-                <div key="tab-list" className={`space-y-2.5 ${tabAnimClass}`}>
-                  {filteredExpenses.length === 0 ? (
+                <div key="tab-list" data-testid="expense-list-panel" className={`space-y-2.5 ${tabAnimClass}`}>
+                  {groupedByDate.length > 0 && (
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={expandAllDates}
+                        className="px-3 py-1.5 rounded-full bg-white/70 border border-white text-xs font-bold text-slate-700 flex items-center gap-1"
+                      >
+                        <ChevronsUpDown size={13} strokeWidth={2} />
+                        <span>全部展開</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={collapseAllDates}
+                        className="px-3 py-1.5 rounded-full bg-white/70 border border-white text-xs font-bold text-slate-700 flex items-center gap-1"
+                      >
+                        <ChevronsDownUp size={13} strokeWidth={2} />
+                        <span>全部收起</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {groupedByDate.length === 0 ? (
                     <div className="lg-card p-8 text-center text-sm text-slate-500">尚無消費紀錄</div>
                   ) : (
-                    filteredExpenses.map((exp) => {
-                      const meta = CATEGORY_COLORS[exp.category] || CATEGORY_COLORS["其他"];
+                    groupedByDate.map((group) => {
+                      const open = isDateExpanded(group.date);
                       return (
-                        <div
-                          key={exp.id}
-                          onClick={() => setDetailExpense(exp)}
-                          className="lg-card p-3.5 flex items-center justify-between gap-3 cursor-pointer transition active:scale-[0.98]"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                              style={{ background: meta.bg, color: meta.color }}
-                            >
-                              <CategoryIcon category={exp.category} size={18} />
+                        <div key={group.date} className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedDates((prev) => ({ ...prev, [group.date]: !open }))
+                            }
+                            className="lg-glass w-full px-3.5 py-2.5 rounded-[16px] flex items-center justify-between text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronDown
+                                size={16}
+                                strokeWidth={2}
+                                className={`text-slate-500 transition-transform duration-300 ${open ? "rotate-0" : "-rotate-90"}`}
+                              />
+                              <span className="text-xs font-bold text-slate-800 tabular-nums">{group.date}</span>
+                              <span className="text-[11px] font-semibold text-slate-500 tabular-nums">
+                                {group.items.length} 筆
+                              </span>
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-bold text-slate-800 truncate">{exp.title}</div>
-                              <div className="text-[11px] text-slate-500 tabular-nums truncate">
-                                {exp.date} · {exp.category}
-                                {exp.merchant ? ` · ${exp.merchant}` : ""}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-sm font-bold text-slate-800 tabular-nums">
-                              {formatTwd(exp.amountTwd)}
-                            </div>
-                            <div className="text-[11px] text-slate-500 tabular-nums">
-                              {formatForeign(exp.originalAmount, exp.originalCurrency)}
+                            <span className="text-xs font-bold text-[#5b8270] tabular-nums">
+                              {formatTwd(group.totalTwd)}
+                            </span>
+                          </button>
+
+                          <div className={`lg-accordion ${open ? "is-open" : ""}`}>
+                            <div className="lg-accordion-inner space-y-2">
+                              {group.items.map((exp) => {
+                                const meta = CATEGORY_COLORS[exp.category] || CATEGORY_COLORS["其他"];
+                                return (
+                                  <div
+                                    key={exp.id}
+                                    onClick={() => setDetailExpense(exp)}
+                                    className="lg-card p-3.5 flex items-center justify-between gap-3 cursor-pointer transition active:scale-[0.98]"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                        style={{ background: meta.bg, color: meta.color }}
+                                      >
+                                        <CategoryIcon category={exp.category} size={18} />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-bold text-slate-800 truncate">{exp.title}</div>
+                                        <div className="text-[11px] text-slate-500 tabular-nums truncate">
+                                          {exp.category}
+                                          {exp.merchant ? ` · ${exp.merchant}` : ""}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <div className="text-sm font-bold text-slate-800 tabular-nums">
+                                        {formatTwd(exp.amountTwd)}
+                                      </div>
+                                      <div className="text-[11px] text-slate-500 tabular-nums">
+                                        {formatForeign(exp.originalAmount, exp.originalCurrency)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -623,32 +807,39 @@ export default function App() {
                 </div>
               )}
             </div>
-
-            {/* Bottom Dock */}
-            <div className="lg-glass fixed left-1/2 -translate-x-1/2 bottom-[max(16px,env(safe-area-inset-bottom,16px))] w-[calc(100%-32px)] max-w-[398px] p-2 flex items-center gap-2 z-40">
-              <button
-                type="button"
-                onClick={() => downloadTripReportHtml(currentTrip, tripExpenses)}
-                className="lg-btn flex-1 bg-white/65 border border-white/85 text-slate-800 text-sm font-semibold flex items-center justify-center gap-1.5"
-              >
-                <Download size={16} strokeWidth={2} />
-                <span>匯出報告</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingExpense(null);
-                  setIsExpenseModalOpen(true);
-                }}
-                className="lg-btn flex-[1.4] bg-[#5b8270] text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Plus size={18} strokeWidth={2} />
-                <span>記一筆</span>
-              </button>
-            </div>
           </section>
         )}
       </main>
+
+      {/* Bottom Dock Portaled to document.body so transform animations never break position:fixed */}
+      {view === "main" && currentTrip &&
+        createPortal(
+          <div
+            id="bottom-action-dock"
+            className="lg-glass fixed left-1/2 -translate-x-1/2 bottom-[max(16px,env(safe-area-inset-bottom,16px))] w-[calc(100%-32px)] max-w-[398px] p-2 flex items-center gap-2 z-50"
+          >
+            <button
+              type="button"
+              onClick={() => downloadTripReportHtml(currentTrip, tripExpenses)}
+              className="lg-btn flex-1 bg-white/70 border border-white/90 text-slate-800 text-sm font-semibold flex items-center justify-center gap-1.5"
+            >
+              <Download size={16} strokeWidth={2} />
+              <span>匯出報告</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingExpense(null);
+                setIsExpenseModalOpen(true);
+              }}
+              className="lg-btn flex-[1.4] bg-[#5b8270] text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <Plus size={18} strokeWidth={2} />
+              <span>記一筆</span>
+            </button>
+          </div>,
+          document.body
+        )}
 
       {/* Modals (Portaled to document.body) */}
       <TripFormModal
@@ -694,6 +885,16 @@ export default function App() {
           if (t[0]) setCurrentTripId(t[0].id);
         }}
         onClose={() => setIsSyncModalOpen(false)}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={Boolean(pendingDeleteTrip)}
+        targetName={pendingDeleteTrip?.name || ""}
+        onCancel={() => setPendingDeleteTrip(null)}
+        onConfirm={() => {
+          if (pendingDeleteTrip) handleDeleteTrip(pendingDeleteTrip.id);
+          setPendingDeleteTrip(null);
+        }}
       />
     </>
   );

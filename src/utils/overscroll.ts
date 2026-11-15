@@ -6,6 +6,7 @@ export function attachAndroidEdgeStretch(
   let startY = 0;
   let stretch = 0;
   let activeEdge: "top" | "bottom" | null = null;
+  let ignoreTouch = false;
 
   const applyStretch = (val: number, edge: "top" | "bottom" | null) => {
     if (!edge || val <= 0.001) {
@@ -30,12 +31,15 @@ export function attachAndroidEdgeStretch(
 
   const onStart = (e: TouchEvent) => {
     if (e.touches.length !== 1) return;
+    const t = e.target as HTMLElement | null;
+    ignoreTouch = Boolean(t && t.closest("[role='dialog'], .leaflet-container"));
+    if (ignoreTouch) return;
     startY = e.touches[0].clientY;
     stretch = 0;
     activeEdge = null;
   };
   const onMove = (e: TouchEvent) => {
-    if (e.touches.length !== 1) return;
+    if (ignoreTouch || e.touches.length !== 1) return;
     const dy = e.touches[0].clientY - startY;
     const atTop = scrollEl.scrollTop <= 1;
     const atBottom = scrollEl.scrollTop + window.innerHeight >= scrollEl.scrollHeight - 2;
@@ -53,6 +57,7 @@ export function attachAndroidEdgeStretch(
     }
   };
   const onRelease = () => {
+    ignoreTouch = false;
     if (activeEdge || stretch > 0) {
       activeEdge = null;
       stretch = 0;
