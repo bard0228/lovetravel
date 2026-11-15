@@ -3,12 +3,12 @@ import { getTaiwanTimeInfo } from "./taiwanTime";
 
 export function normalizeDate(dateStr?: string): string {
   if (!dateStr) return "";
-  const s = dateStr.trim().replace(/\//g, "-");
-  const parts = s.split("-");
+  const cleaned = String(dateStr).trim().split("T")[0].replace(/\//g, "-");
+  const parts = cleaned.split("-");
   if (parts.length === 3) {
     return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
   }
-  return s;
+  return cleaned;
 }
 
 export function isTripOngoingToday(

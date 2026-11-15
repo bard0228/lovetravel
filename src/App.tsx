@@ -482,8 +482,8 @@ export default function App() {
                         </div>
                         <div className="text-xs text-slate-500 tabular-nums mt-1">
                           {t.destination ? `${t.destination} · ` : ""}
-                          {t.startDate}
-                          {t.endDate ? ` ~ ${t.endDate}` : ""}
+                          {normalizeDate(t.startDate)}
+                          {t.endDate ? ` ~ ${normalizeDate(t.endDate)}` : ""}
                         </div>
                       </div>
                       <button

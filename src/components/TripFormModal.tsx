@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Trip } from "../types";
 import { SUPPORTED_CURRENCIES } from "../utils/currencies";
 import { getTaiwanTimeInfo } from "../utils/taiwanTime";
+import { normalizeDate } from "../utils/tripDates";
 import { GlassModal } from "./GlassModal";
 
 interface TripFormModalProps {
@@ -30,8 +31,8 @@ export const TripFormModal: React.FC<TripFormModalProps> = ({
         setName(editingTrip.name);
         setDestination(editingTrip.destination);
         setDefaultCurrency(editingTrip.defaultCurrency);
-        setStartDate(editingTrip.startDate);
-        setEndDate(editingTrip.endDate || "");
+        setStartDate(normalizeDate(editingTrip.startDate));
+        setEndDate(normalizeDate(editingTrip.endDate));
         setBudgetStr(editingTrip.budgetTwd ? String(editingTrip.budgetTwd) : "");
       } else {
         setName("");
