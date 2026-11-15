@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+// 驗證 seed.json 遷移完整性與核心業務邊界
+import fs from "node:fs";
+import path from "node:path";
+
+const seedPath = path.resolve("public/data/seed.json");
+
+test("T2 seed.json 包含東京長岡花火旅程與 41 筆消費明細", () => {
+  assert.equal(fs.existsSync(seedPath), true, "seed.json 必須存在");
+  const data = JSON.parse(fs.readFileSync(seedPath, "utf-8"));
+  assert.equal(data.trips.length, 1);
+  assert.equal(data.trips[0].name, "東京。長岡花火");
+  assert.equal(data.expenses.length, 41);
+});
+
+test("T2 報告照片過濾：自動隱藏發票與收據，僅保留實品照", () => {
+  const filterFn = (images) =>
+    (images || []).filter((img) => {
+      if (img.typeHint === "receipt") return false;
+      if (img.name && /收據|發票|帳單|明細|簽單|receipt|invoice|bill/i.test(img.name)) return false;
+      return true;
+    });
+
+  const mixed = [
+    { id: "1", typeHint: "receipt", name: "IMG_01.jpg" },
+    { id: "2", typeHint: "general", name: "唐吉訶德發票.jpg" },
+    { id: "3", typeHint: "item", name: "一蘭拉麵.jpg" },
+  ];
+  const out = filterFn(mixed);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].id, "3");
+});

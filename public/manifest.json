@@ -1,0 +1,17 @@
+{
+  "name": "旅記 · LoveTravel",
+  "short_name": "旅記",
+  "description": "iOS Liquid Glass 旅遊記帳與足跡地圖 PWA",
+  "start_url": "/lovetravel/",
+  "scope": "/lovetravel/",
+  "display": "standalone",
+  "background_color": "#f0f3f8",
+  "theme_color": "#f0f3f8",
+  "icons": [
+    {
+      "src": "/lovetravel/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
