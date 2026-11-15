@@ -39,10 +39,44 @@ function doPost(e) {
     );
   }
   if (Array.isArray(body.expenses)) {
-    const rows = body.expenses.map((x) => ({
-      ...x,
-      imagesJson: JSON.stringify((x.images || []).map((img) => ({ id: img.id, typeHint: img.typeHint, name: img.name, driveUrl: img.driveUrl })))
-    }));
+    // 找出本次同步前已經存在的 Drive 照片
+    const oldRows = readSheetObjects_(ss.getSheetByName("Expenses"));
+    const oldDriveFileIds = new Set();
+    oldRows.forEach((row) => {
+      try {
+        const imgs = JSON.parse(row.imagesJson || "[]");
+        imgs.forEach((img) => {
+          if (img.driveUrl) {
+            const m = String(img.driveUrl).match(/[-\w]{25,}/);
+            if (m) oldDriveFileIds.add(m[0]);
+          }
+        });
+      } catch (_) {}
+    });
+
+    const currentDriveFileIds = new Set();
+    const rows = body.expenses.map((x) => {
+      (x.images || []).forEach((img) => {
+        if (img.driveUrl) {
+          const m = String(img.driveUrl).match(/[-\w]{25,}/);
+          if (m) currentDriveFileIds.add(m[0]);
+        }
+      });
+      return {
+        ...x,
+        imagesJson: JSON.stringify((x.images || []).map((img) => ({ id: img.id, typeHint: img.typeHint, name: img.name, driveUrl: img.driveUrl })))
+      };
+    });
+
+    // 自動將已從 App 刪除的照片檔案移入 Drive 垃圾桶
+    oldDriveFileIds.forEach((fileId) => {
+      if (!currentDriveFileIds.has(fileId)) {
+        try {
+          DriveApp.getFileById(fileId).setTrashed(true);
+        } catch (_) {}
+      }
+    });
+
     writeSheetObjects_(ss.getSheetByName("Expenses"),
       ["id","tripId","date","time","category","title","merchant","originalAmount","originalCurrency","exchangeRate","amountTwd","paymentMethod","coordinates","notes","imagesJson","createdAt"],
       rows
