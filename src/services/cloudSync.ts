@@ -4,6 +4,7 @@ export const KEY_TRIPS = "lovetravel_trips_v2";
 export const KEY_EXPENSES = "lovetravel_expenses_v2";
 export const KEY_RATES = "lovetravel_rates_v2";
 export const KEY_GAS_URL = "lovetravel_gas_sync_url";
+export const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyeBb6XfrEyjm2Uybz96nimDOb2RTkk0hOegNRD6JL7tLbttQ0qDzGPhPkZMaWTBNTc/exec";
 
 export function mergeTrips(localTrips: Trip[], remoteTrips: Trip[]): Trip[] {
   const map = new Map<string, Trip>();

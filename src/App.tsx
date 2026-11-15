@@ -37,6 +37,7 @@ import {
   setLocalDbItem,
 } from "./services/localDb";
 import {
+  DEFAULT_GAS_URL,
   fetchSeedData,
   KEY_EXPENSES,
   KEY_GAS_URL,
@@ -63,7 +64,7 @@ export default function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [rates, setRates] = useState<Record<string, number>>(getDefaultRatesMap);
-  const [gasUrl, setGasUrl] = useState<string>(() => localStorage.getItem(KEY_GAS_URL) || "");
+  const [gasUrl, setGasUrl] = useState<string>(() => localStorage.getItem(KEY_GAS_URL) || DEFAULT_GAS_URL);
   const [ready, setReady] = useState(false);
 
   const [view, setView] = useState<ViewMode>("welcome");
@@ -102,9 +103,9 @@ export default function App() {
       let mergedTrips = mergeTrips(localTrips || [], seed?.trips || []);
       let mergedExpenses = mergeExpenses(localExpenses || [], seed?.expenses || []);
 
-      const savedGas = localStorage.getItem(KEY_GAS_URL) || "";
-      if (savedGas) {
-        const remote = await pullFromGas(savedGas);
+      const activeGas = localStorage.getItem(KEY_GAS_URL) || DEFAULT_GAS_URL;
+      if (activeGas) {
+        const remote = await pullFromGas(activeGas);
         if (remote) {
           mergedTrips = mergeTrips(mergedTrips, remote.trips);
           mergedExpenses = mergeExpenses(mergedExpenses, remote.expenses);
