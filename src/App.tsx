@@ -524,8 +524,8 @@ export default function App() {
               <div className="text-center min-w-0 flex-1">
                 <div className="text-[15px] font-bold text-slate-800 truncate">{currentTrip.name}</div>
                 <div className="text-[11px] text-slate-500 tabular-nums">
-                  {currentTrip.startDate}
-                  {currentTrip.endDate ? ` ~ ${currentTrip.endDate}` : ""} · {currentTrip.defaultCurrency}
+                  {normalizeDate(currentTrip.startDate)}
+                  {currentTrip.endDate ? ` ~ ${normalizeDate(currentTrip.endDate)}` : ""} · {currentTrip.defaultCurrency}
                 </div>
               </div>
               <div className="flex items-center gap-1.5">

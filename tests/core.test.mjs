@@ -7,12 +7,16 @@ import path from "node:path";
 
 const seedPath = path.resolve("public/data/seed.json");
 
-test("T2 seed.json 包含東京長岡花火旅程與 41 筆消費明細", () => {
+test("T2 seed.json 包含東京長岡花火與大分福岡旅程", () => {
   assert.equal(fs.existsSync(seedPath), true, "seed.json 必須存在");
   const data = JSON.parse(fs.readFileSync(seedPath, "utf-8"));
-  assert.equal(data.trips.length, 1);
-  assert.equal(data.trips[0].name, "東京。長岡花火");
-  assert.equal(data.expenses.length, 41);
+  assert.equal(data.trips.length >= 2, true);
+  const tokyo = data.trips.find((t) => t.name === "東京。長岡花火");
+  assert.ok(tokyo, "必須包含東京。長岡花火旅程");
+  const tokyoExps = data.expenses.filter((e) => e.tripId === tokyo.id);
+  assert.equal(tokyoExps.length, 41);
+  const fuk = data.trips.find((t) => t.name === "大分。福岡");
+  assert.ok(fuk, "必須包含大分。福岡旅程");
 });
 
 test("T2 報告照片過濾：自動隱藏發票與收據，僅保留實品照", () => {

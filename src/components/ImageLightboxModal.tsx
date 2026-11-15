@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { CompressedImage } from "../types";
+import { resolveImageUrl } from "../utils/imageUrl";
 
 interface ImageLightboxModalProps {
   images: CompressedImage[];
@@ -23,7 +24,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   if (initialIndex === null || !images[index]) return null;
 
   const current = images[index];
-  const src = current.dataUrl || current.driveUrl || "";
+  const src = resolveImageUrl(current.dataUrl || current.driveUrl || "");
 
   return createPortal(
     <div
