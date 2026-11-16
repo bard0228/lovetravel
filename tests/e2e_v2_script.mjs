@@ -8,6 +8,16 @@ export default async function ({ page, assert }) {
   });
   assert(h1Size >= 42 && h1Size <= 56, `歡迎頁「旅記」字體應恢復原本大小 (~46px)，目前為 ${h1Size}px`);
 
+  // 1.1 檢查右上角雲端同步按鈕為透明玉子燒圖示，且點擊能開啟同步彈窗
+  const syncBtnImg = await page.$("button[aria-label='雲端同步'] img[src*='tamago-sushi-nobg.png']");
+  assert(syncBtnImg, "歡迎頁雲端同步按鈕未包含透明玉子燒圖示");
+  await page.click("button[aria-label='雲端同步']");
+  await new Promise((r) => setTimeout(r, 300));
+  const syncModalTitle = await page.evaluate(() => document.body.innerText);
+  assert(syncModalTitle.includes("雲端同步與備份"), "點擊玉子燒按鈕未能開啟同步彈窗");
+  await page.click("button[aria-label='關閉']");
+  await new Promise((r) => setTimeout(r, 250));
+
   // 2. 進入回憶 -> 檢查右上角已移除「+」按鈕、且刪除旅程會跳出確認視窗
   await page.click("#btn-memories");
   await new Promise((r) => setTimeout(r, 400));

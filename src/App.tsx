@@ -6,7 +6,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Clock,
-  Cloud,
   Download,
   Edit3,
   Plus,
@@ -387,9 +386,13 @@ export default function App() {
               type="button"
               onClick={() => setIsSyncModalOpen(true)}
               aria-label="雲端同步"
-              className="lg-btn lg-glass absolute top-0 right-0 !min-w-[48px] !min-h-[48px] w-12 h-12 flex items-center justify-center text-slate-700"
+              className="lg-btn lg-glass absolute top-0 right-0 !min-w-[48px] !min-h-[48px] w-12 h-12 flex items-center justify-center p-2 text-slate-700"
             >
-              <Cloud size={20} strokeWidth={2} />
+              <img
+                src={`${import.meta.env.BASE_URL}assets/tamago-sushi-nobg.png`}
+                alt="雲端同步"
+                className="w-7 h-7 object-contain select-none pointer-events-none drop-shadow-sm"
+              />
             </button>
 
             <div className="text-center select-none">

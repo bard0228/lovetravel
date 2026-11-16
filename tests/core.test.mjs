@@ -44,3 +44,21 @@ test("T3 匯出報告 HTML 採用橫向 photo-row 滿版排版並含 PDF 分享�
   assert.equal(reportSrc.includes("${imgsRowHtml}"), true);
 });
 
+test("T4 PWA 圖示包含黑底玉子燒與歡迎頁透明同步按鈕", () => {
+  assert.ok(fs.existsSync(path.resolve("public/icon-192.png")), "icon-192.png 必須存在");
+  assert.ok(fs.existsSync(path.resolve("public/icon-512.png")), "icon-512.png 必須存在");
+  assert.ok(fs.existsSync(path.resolve("public/apple-touch-icon.png")), "apple-touch-icon.png 必須存在");
+  assert.ok(fs.existsSync(path.resolve("public/assets/tamago-sushi-nobg.png")), "tamago-sushi-nobg.png 必須存在");
+
+  const manifest = JSON.parse(fs.readFileSync(path.resolve("public/manifest.json"), "utf-8"));
+  const iconSrcs = manifest.icons.map((i) => i.src);
+  assert.ok(iconSrcs.some((s) => s.includes("icon-192.png")), "manifest 必須包含 icon-192.png");
+  assert.ok(iconSrcs.some((s) => s.includes("icon-512.png")), "manifest 必須包含 icon-512.png");
+
+  const indexHtml = fs.readFileSync(path.resolve("index.html"), "utf-8");
+  assert.ok(indexHtml.includes("icon-192.png") || indexHtml.includes("icon-512.png"), "index.html 必須引用新圖示");
+
+  const appSrc = fs.readFileSync(path.resolve("src/App.tsx"), "utf-8");
+  assert.ok(appSrc.includes("tamago-sushi-nobg.png"), "App.tsx 歡迎頁同步按鈕必須引用透明玉子燒圖示");
+});
+
